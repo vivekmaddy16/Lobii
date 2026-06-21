@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum CommunityRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum RoomKind {
+  CHAT
+  VOICE
+  VIDEO
+}
+
+model User {
+  id               String      @id @default(cuid())
+  externalId       String      @unique
+  email            String      @unique
+  name             String
+  imageUrl         String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  communitiesOwned Community[] @relation("CommunityOwner")
+  memberships      Membership[]
+  messages         Message[]
+}
+
+model Community {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  description String
+  accent      String
+  ownerId     String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  owner       User         @relation("CommunityOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+  rooms       Room[]
+
+  @@index([ownerId])
+}
+
+model Membership {
+  id          String        @id @default(cuid())
+  role        CommunityRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  userId      String
+  communityId String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community   Community     @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, communityId])
+  @@index([communityId, role])
+}
+
+model Room {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String
+  topic       String?
+  kind        RoomKind  @default(CHAT)
+  isPrivate   Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  messages    Message[]
+
+  @@unique([communityId, slug])
+  @@index([communityId, sortOrder])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  roomId    String
+  authorId  String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+  @@index([authorId])
+}
